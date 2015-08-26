@@ -1,0 +1,581 @@
+
+Oracle Community DirectoryOracle Community FAQLog in
+SearchGO DIRECTLY TO
+All Places > Java > Java EE (Java Enterprise Edition) > Documents
+Effective Ways to Implement and Use the Singleton Design Pattern
+
+created by Yolande Poirier-Oracle on 30-Jul-2015 13:34, last modified by Yolande Poirier-Oracle on 14-Aug-2015 14:35 Version 1
+by Payene Denis Kombate
+
+Explore the pros and cons of various ways to implement the Singleton pattern, and learn how to use the pattern to create a database connection whose parameters can be updated after a Java application has been compiled.
+
+This article discusses the following three topics about the Singleton design pattern:
+
+The different ways to implement the Singleton pattern
+How to create a class for a database connection using the Singleton pattern
+How to update the class parameters for a database connection after the application has been compiled
+
+Before delving into the subject, let's define the Singleton pattern.
+
+The Singleton pattern is one of many design patterns. Its unique characteristic is that it allows the existence of only and only one instance of a class. To ensure the uniqueness of a singleton, it is very important to control the process of its instantiation. Declaring the constructor as private prevents any external script from using the keyword new to directly create an instance of the singleton class.
+
+As a result, any code wanting to get an instance of the singleton should pass a specific method named getInstance instead of the usual constructor. This method should be static, and it is the method that can directly execute the instantiation of the singleton using the keyword new.
+
+Different Ways to Implement a Singleton Class
+
+Now, let's explore the various ways to implement a singleton.
+
+Minimal Singleton
+
+Listing 1 shows a minimal version of a singleton:
+
+public class JavaSingleton {
+
+     private JavaSingleton() {
+        /* the body of the constructor here */
+     }
+
+     /* pre-initialized instance of the singleton */
+     private static final  JavaSingleton INSTANCE = new JavaSingleton();
+
+     /* Access point to the unique instance of the singleton */
+     public static JavaSingleton getInstance() {
+        return INSTANCE;
+     }
+}
+
+Listing 1. Minimal singleton
+
+The class in Listing 1 seems correct, but it has some imperfections because it immediately loads the instance of the class when the application starts even if the instance is not needed. In some cases, the best approach is to load the instance of the class in memory only when the method getInstance is called. There is an approach called lazy loading that allows a late loading of the instance of a singleton in memory.
+
+Lazy-Loading Singleton
+
+Listing 2 shows the singleton class declaration with lazy loading.
+
+public class JavaSingleton {
+  private JavaSingleton() {
+        /* the body of the constructor here */
+    }
+    /* declaration of instance of the singleton */
+    private static JavaSingleton INSTANCE;
+
+    /* Access point to the unique instance of the singleton */
+    public static JavaSingleton getInstance() throws Throwable {
+        if (INSTANCE == null) {
+            INSTANCE = new JavaSingleton();
+        }
+        return INSTANCE;
+    }
+}
+
+Listing 2. Lazy-loading singleton
+
+The code in Listing 2 seems correct, but it's inappropriate in a multithreaded environment and is susceptible to returning more than one instance of the singleton if the method getInstance() is not protected by a synchronization.
+
+Synchronized Singleton
+
+Listing 3 shows a synchronized singleton class:
+
+public class JavaSingleton {
+     /* Private constructor     */
+     private JavaSingleton() {
+           /* the body of the constructor here */
+     }
+
+     /* pre-initialized instance of the singleton */
+     private static JavaSingleton INSTANCE;
+
+     /* Access point to the unique instance of the singleton */
+     public static JavaSingleton getInstance() {
+       if (INSTANCE == null){
+          synchronized(JavaSingleton.class){
+               INSTANCE = new JavaSingleton();
+          }
+       return INSTANCE ;
+       }
+     }
+}
+
+Listing 3. Synchronized singleton
+
+Two threads can enter the if block at the same time when INSTANCE is null. The first thread enters the synchronized block to initialize INSTANCE while the second thread is blocked. When the first thread gets out of the synchronized block, the second one, which was blocked, can then enter the synchronized block. But when the second thread enters the synchronized block, it does not verify whether INSTANCE is null before initializing it.
+
+In this case, the simplest solution would be to synchronize the get method instance, but this would affect the performance of the program. If the singleton is called frequently in the program, this will make the program work very slowly.
+
+So the way to resolve the problem is to have a second verification in the synchronized block. There is an idiom that does this verification: double-checked locking.
+
+Double-Checked Locking Singleton
+
+Listing 4 shows a singleton class declaration with double-checked locking.
+
+public class JavaSingleton {
+     /* Private constructor     */
+     private JavaSingleton() {
+        /* the body of the constructor here */
+     }
+
+     /* pre-initialized instance of the singleton */
+     private static JavaSingleton INSTANCE ;
+
+     /* Access point to the unique instance of the singleton */
+     public static JavaSingleton getInstance() {
+        if (INSTANCE == null){
+            synchronized(JavaSingleton.class){
+               if(INSTANCE == null){
+                    INSTANCE = new JavaSingleton;
+               }
+            }
+            return INSTANCE ;
+        }
+     }
+}
+
+Listing 4. Singleton class declaration with double-checked locking
+
+Intuitively, this algorithm seems like an effective solution to the problem. However, it raises subtle and difficult-to-trace problems. Consider the following sequence of events.
+
+Thread A notices that the shared variable is not initialized. So it acquires the lock and begins to initialize the variable.
+
+Because of the semantics of the programming language, the code generated by the compiler has the right to modify the shared variable before thread A's variable initialization has completed, so the reference variable is a partially initialized object (for example, because the thread begins to allocate memory and places the reference to the allocated memory block in the variable before finally calling the constructor, that will initialize the memory block).
+
+Thread B notices that the shared variable has been initialized (or at least seems to be initialized), and it returns its value immediately without attempting to acquire a lock. If, then, the shared variable is used before thread A has had time to complete its initialization, the program is likely to crash.
+
+One of the dangers of double-checked locking is that often it will appear to work. This depends on the compiler and how threads are scheduled by the operating system, along with other data-access competition management mechanisms. Reproducing the cause of a crash can be difficult, because crashes are highly unlikely when the code is running in a debugger. The use of double-checked locking must, therefore, be limited as much as possible.
+
+Volatile Singleton
+
+The volatile reserved word (see Listing 5) provides a solution to this problem by ensuring that different threads correctly handle concurrent access to the single instance of a singleton. However, this access security has a price: accessing a volatile variable is less efficient than accessing a normal variable.
+
+Note: This functionality has been available since JDK 1.0, but it is deprecated now.
+
+/* This doesn't work with Java 1.4 or earlier*/
+
+class JavaSingleton {
+     /* Private constructor     */
+     private JavaSingleton() {
+        /* the body of the constructor here */
+     }
+
+     /* instance of the singleton declaration */
+     private volatile  JavaSingleton INSTANCE ;
+
+     /* Access point to the unique instance of the singleton */
+     public static JavaSingleton getInstance() {
+        if (INSTANCE == null){
+           synchronized(JavaSingleton.class){
+              if(INSTANCE == null){
+                 INSTANCE = new JavaSingleton;
+              }
+           }
+        return INSTANCE ;
+        }
+     }
+}
+
+Listing 5. Example of code that uses volatile
+
+Many versions of double-checked locking that do not use explicit synchronization or the volatile variable have been proposed. Apart from those based on the keyword enum pattern, all have proved to be incorrect.
+
+Class Holder Singleton
+
+The last technique of creating a singleton that we'll talk about is the class holder. It relies on the use of a private inner class, which is responsible for instantiating the single instance of the singleton, as shown in Listing 6.
+
+public class JavaSingleton {
+     /* Private constructor     */
+     private JavaSingleton() {
+        /* the body of the constructor here */
+     }
+
+     /* Access point to the unique instance of the singleton */
+     public static JavaSingleton getInstance() {
+         return INSTANCE;
+     }
+
+     private static class JavaSingletonHolder{
+     private static final Singleton INSTANCE = new JavaSingleton()
+     }
+}
+
+Listing 6. Example of a private inner class that instantiates a singleton
+
+This type of singleton is recommended in any multithreaded environment.
+
+Now let's explore the second point of this article.
+
+How to Create a Database Connection Class Using a Singleton
+
+A database connection class can be created by extending the Java Persistence API (JPA) or by creating a simple class with a method that returns the connection statement. Those who use JPA need not be concerned with this part of the article, because with JPA the persistence is based on the Singleton pattern.
+
+From here to the end of the article the singleton class JavaSingleton will be called DbSingleton (this name is more appropriate for a database connection singleton).
+
+Listing 7 shows a class that ensures that there will never be two instances of the database connection.
+
+public class DbSingleton {
+    private static String db_url;
+    private static String db_port;
+    private static String db_name;
+    private static String db_user;
+    private static String db_password;
+    private static Statement connection;
+
+    private DbSingleton() {
+/*
+       *Default database parameters
+*/
+        db_url = "jdbc:mysql://localhost";
+        db_port = "3306";
+        db_name = "mysql";
+        db_user = "root";
+        db_password = "admin";
+/* Creation of an instance of the connection statement*/
+        connection = setConnection();
+    }
+/* Private method charge to set the connection statement*/
+    private static Statement setConnection() {
+        try {
+            String url = "" + db_url + ":" + db_port + "/" + db_name + "";
+            java.sql.Connection conn = DriverManager.getConnection(url, db_user, db_password);
+
+            //Creation of the Statement object
+            java.sql.Statement state = conn.createStatement();
+            return (Statement) state;
+        } catch (SQLException ex) {
+            Logger.getLogger(DbSingleton.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
+    }
+
+/* Private inner class responsible for instantiating the single instance of the singleton */
+    private static class DbSingletonManagerHolder {
+        private final static DbSingleton instance = new DbSingleton();
+    }
+
+    /**
+     * @return
+Public method, which is the only method allowed to return an instance of
+the singleton (the instance here is the database connection statement)
+     */
+    public static DbSingleton getInstance() {
+        try {
+            return DbSingletonManagerHolder.instance;
+        } catch (ExceptionInInitializerError ex) {
+
+        }
+        return null;
+    }
+    public static Statement getStatement() {
+        return connection;
+    }
+}
+
+Listing 7. Class that prevents two instances of the database connection
+
+With this class, you can be sure there will never be two instances of the database connection. The way to use the database statement is shown in Listing 8:
+
+/* Creation of the statement instance */
+DbSingleton single = DbSingleton.getInstance();
+Statement state = DbSingleton.getStatement();
+/* put your SQL code in the variable sqlString */
+String sqlString = "" ;
+ResultSet result = state.executeQuery(sqlString);
+
+Listing 8. Example of how to use the database connection
+
+Now let's examine the last topic of this article.
+
+How to Update the Parameters for a Database Connection After the Application Has Been Compiled
+
+When the application will be compiled it will be impossible to change the database parameters manually directly in the source code, but we'll see a trick now for how to do this programmatically.
+
+First, in the application, we create a form into which the new database parameters will be typed. The form should have the following fields:
+
+Server address
+Server port
+Database username
+Database password
+Database name
+
+When a user submits this form, the parameters that were typed in should be stored in an XML or plain text file of your choice.
+
+Add the Parameters class shown in Listing 9 to manage the updating of the database parameters.
+
+public class Parameters {
+    private static String url;
+    private static String port;
+    private static String dbName;
+    private static String user;
+    private static String pass;
+    private static final String storeFilePath = "/home/path/to/txt/file";
+    public Parameters() {
+        String parameters[];
+        try {
+            parameters = txtReader();
+            url = parameters[0]; port = parameters[1]; dbName = parameters[2];
+                  user = parameters[3]; pass = parameters[4];
+        } catch (IOException ex) {
+            Logger.getLogger(Parameters.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    /* This method returns an array containing the database parameters in the following order: url,port,dbname,user,pass */
+    public static String[] txtReader() throws IOException {
+        BufferedReader read;
+        String line = "";    String[] params = null;
+        try {
+            read = new BufferedReader(new FileReader(storeFilePath));
+            line = line + read.readLine();
+            /* Split the content of the file*/
+            params = line.split(";");
+        } catch (NullPointerException a) {
+            System.out.println("Error : pointer null");
+        } catch (IOException a) {
+            System.out.println("I/O Problem");
+        } finally {
+            System.out.println("I/O Problem");
+        }
+        return params;
+    }
+    public void txtWriter(String user, String pass, String address, String port, String dbname) {
+        /* Specify the path to the file where the database parameters will be stored */
+        String path = storeFilePath;
+        final File file = new File(path);
+        try {
+            // Creation of the file
+            file.createNewFile();
+            // creation of the writer
+            final FileWriter writer = new FileWriter(file);
+            try {
+                /*Save database parameters, separated by a semi-colon (;), in a text file*/
+                writer.write(address + ";" + port + ";" + dbname + ";" + user + ";" + pass);
+            } finally {
+                // Whatever happens, the file should be closed
+                writer.close();
+            }
+        } catch (Exception e) {
+            System.out.println("Impossible to create the file");
+        }
+    }
+
+    public static String getUrl() {
+        return url;
+    }
+    public static String getPort() {
+        return port;
+    }
+    public static String getDbName() {
+        return dbName;
+    }
+    public static String getUser() {
+        return user;
+    }
+    public static String getPass() {
+        return pass;
+    }
+    public void setUrl(String dburl) {
+        url = dburl;
+    }
+    public void setPort(String dbport) {
+        port = dbport;
+    }
+    public void setDbName(String db_name) {
+        dbName = db_name;
+    }
+    public void setUser(String dbuser) {
+        user = dbuser;
+    }
+    public void setPass(String dbpass) {
+        pass = dbpass;
+    }
+}
+
+Listing 9. Code for managing the updating of the database parameters
+
+Now we will update the DbSingleton by calling the method getParameters() and overriding the values of the default parameters with values that we get from the external file.
+
+First, update DbSingleton by overriding the private constructor using the script shown in Listing 10:
+
+private DbSingleton() {
+/*
+   * Overriding database parameters
+*/
+        Parameters params = new Parameters() ;
+        db_url = params.getUrl();
+        db_port = params.getPort() ;
+        db_name = params.getName() ;
+        db_user = params.getUser() ;
+        db_password = params.getPass() ;
+/* Creation of an instance of the connection statement*/
+        connection = setConnection();
+}
+
+Listing 10. Script for overriding the private constructor
+
+To override the current database parameters, the current instance of DbSingleton should be cleared. To do this you might think of setting INSTANCE to null, but this will never work because INSTANCE is a final variable so no assignment could ever be done to it.
+
+The way to override the singleton very simply is to programmatically restart the application and create a new instance of DbSingleton with the new database parameters.
+
+First, update DbSingleton to add the class shown in Listing 11 to make your application programmatically restartable.
+
+public class Restarter {
+    /**
+     * Sun property pointing the main class and its arguments. Might not be
+     * defined on non-Java HotSpot VM implementations.
+     */
+    public static final String SUN_JAVA_COMMAND = "sun.java.command";
+    /**
+     * Restart the current Java application
+     *
+     * @param runBeforeRestart some custom code to be run before restarting
+     * @throws IOException
+     */
+    public static void restartApplication(Runnable goRestart) throws IOException {
+        try {
+            // Java binary
+            String java = System.getProperty("java.home") + "/bin/java";
+            /*  Java virtual machine arguments */
+            List<String> jvmArgs = ManagementFactory.getRuntimeMXBean().getInputArguments();
+            StringBuffer jvmArgsOneLine = new StringBuffer();
+            for (String arg : jvmArgs) {
+              /* if it's the agent argument it is ignored; otherwise;
+
+              the address of the old application and the new one will be
+              in conflict
+             */
+                if (!arg.contains("-agentlib")) {
+                    jvmArgsOneLine.append(arg);
+                    jvmArgsOneLine.append(" ");
+                }
+            }
+            // init the command to execute
+            final StringBuffer cmd = new StringBuffer("" + java + " " + jvmArgsOneLine);
+
+            // program main and program arguments
+            String[] mainCommand = System.getProperty(SUN_JAVA_COMMAND).split(" ");
+            // if program has a JAR as main
+            if (mainCommand[0].endsWith(".jar")) {
+                // if it's a JAR, add -jar mainJar
+                cmd.append("-jar " + new File(mainCommand[0]).getPath());
+            } else {
+            // else if it's a class, add the classpath and mainClass to the command
+                cmd.append("-cp " + System.getProperty("java.class.path") + " " + mainCommand[0]);
+            }
+            /* finally add program arguments */
+            for (int i = 1; i < mainCommand.length; i++) {
+                cmd.append(" ");
+                cmd.append(mainCommand[i]);
+            }
+            /* execute command in shutdown hook to be sure that all the
+             resources have been disposed before restarting the application */
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        Runtime.getRuntime().exec(cmd.toString());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+            if (goRestart != null) {
+                goRestart.run();
+                System.exit(0);
+            }
+        } catch (Exception e) {
+            // something went wrong
+            throw new IOException("Error while trying to restart the application", e);
+        }
+    }
+}
+
+Listing 11. Class that makes the application programmatically restartable
+
+After adding the class shown in Listing 11, connect the script shown in Listing 12 to the Submit button of the form we previously discussed.
+
+/*
+* Here, put code to recover the database parameters from the form
+* into the following variables:
+* dbUrl, dbName, dbPort, dbAddress, dbPassword
+*/
+
+Parameters param = new Parameters() ;
+params.txtWriter(dbUrl, dbName, dbPort, dbAddress, dbPassword) ;
+ Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                JOptionPane.showMessageDialog(null, "Application restarted successfully ",
+                "Restarting", JOptionPane.INFORMATION_MESSAGE);
+            }
+
+ };
+
+ try {
+            restartApplication(r);
+ } catch (IOException ex) {
+            Logger.getLogger(NewJFrame.class.getName()).log(Level.SEVERE, null, ex);
+ }
+
+Listing 12. Script for getting database parameters from the form
+
+See Also
+
+"The 'Double-Checked Locking is Broken' Declaration"
+Singleton pattern
+"Java Singleton Design Pattern Best Practices with Examples"
+
+About the Author
+
+Payene Denis Kombate is a freelance PHP, Java, and mobile developer with four years of experience. He lives in Togo (West Africa), writes a blog (in French), and can be reached on Facebook, on Google+, and via e-mail.
+
+Join the Conversation
+
+Join the Java community conversation on Facebook, Twitter, and the Oracle Java Blog!
+4395 Views  Categories:  Tags: databaseContent tagged with database, javaeeContent tagged with javaee, patternContent tagged with pattern, singletonContent tagged with singleton, articles_otnContent tagged with articles_otn
+Average User Rating: 4 of 5 (1 rating)Average User RatingAverage User Rating: 4 of 5(1 rating)
+Comments
+7 Comments
+ vitalij zadneprovskijNewbie
+vitalij zadneprovskij 31-Jul-2015 04:10
+
+The Singleton pattern is often abused, so programmers should be careful when using it.
+
+Also, this pattern can be implemented using EJB 3.1 or Spring annotations.
+Like Show 0 Likes (0) Actions
+ user6995961Newbie
+user6995961 31-Jul-2015 09:23
+
+At first I thought this was a funny troll.  Then I realised the Gang Of Four wanted it's 20 year old design pattern back.  There are much better ways of achieving this.
+Like Show 1 Like (1) Actions
+ fleiberNewbie
+fleiber 03-Aug-2015 06:18
+
+Honestly, I still can't figure out if this is a April's fool joke or if she is being serious. One of the best WTF articles I've read in some time!
+Like Show 1 Like (1) Actions
+ user8312880Newbie
+user8312880 06-Aug-2015 09:41
+
+I prefer the enum as singleton pattern.
+Like Show 0 Likes (0) Actions
+ 58f90862-10f8-4ea5-9ec5-8aaa07629d34Newbie
+58f90862-10f8-4ea5-9ec5-8aaa07629d34 16-Aug-2015 14:00
+
+I think there is a typo error  at Listing 6. Example of a private inner class that instantiates a singleton.
+The corrected line would be
+private static final JavaSingleton INSTANCE = new JavaSingleton();
+instead of
+private static final Singleton INSTANCE = new JavaSingleton();
+Like Show 0 Likes (0) Actions
+ khooke_acnNewbie
+khooke_acn 17-Aug-2015 18:40
+
+Hopefully most developers that read this will realize that the example for using a singleton for a database connection is in this case being used by a standalone Java desktop application. In enterprise apps running on an app server, you should always use connections managed by the container's DataSource/connection pool. It's rare that you'd have to write code like this (unless you're writing a standalone app outside of an EE container and not have the luxury of using a DataSource).
+Like Show 0 Likes (0) Actions
+ user1994020Newbie
+user1994020 19-Aug-2015 10:02
+
+That looks good with various strategies for singleton. One way on singleton that i think you missed out is using enums. There is a good read about implementing using enums in Effective Java.
+Like Show 0 Likes (0) Actions
+About Oracle Technology Network (OTN)
+Powered by
+Oracle Technology Network
+
+Oracle Communities DirectoryFAQ
+About OracleOracle and SunRSS FeedsSubscribeCareersContact UsSite MapsLegal NoticesTerms of UseYour Privacy RightsCookie Preferences
